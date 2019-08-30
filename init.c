@@ -28,36 +28,22 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <linux/gpio.h>
+
 #include "init.h"
 #include "serial.h"
 #include "stm32.h"
 #include "port.h"
+#include "gpio-utils.h"
+
+#define COMSUMER "stm32flash"
+#define DEVICE_NAME "gpiochip0"
 
 struct gpio_list {
 	struct gpio_list *next;
-	int gpio;
-	int input; /* 1 if direction of gpio should be changed back to input. */
-	int exported; /* 0 if gpio should be unexported. */
+	unsigned int gpio;
+    int fd;
 };
-
-static int write_to(const char *filename, const char *value)
-{
-	int fd, ret;
-
-	fd = open(filename, O_WRONLY);
-	if (fd < 0) {
-		fprintf(stderr, "Cannot open file \"%s\"\n", filename);
-		return 0;
-	}
-	ret = write(fd, value, strlen(value));
-	if (ret < 0) {
-		fprintf(stderr, "Error writing in file \"%s\"\n", filename);
-		close(fd);
-		return 0;
-	}
-	close(fd);
-	return 1;
-}
 
 #if !defined(__linux__)
 static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
@@ -66,99 +52,54 @@ static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
 	return 0;
 }
 #else
-static int read_from(const char *filename, char *buf, size_t len)
-{
-	int fd, ret;
-	ssize_t n = 0;
-
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
-		fprintf(stderr, "Cannot open file \"%s\"\n", filename);
-		return 0;
-	}
-
-	do {
-		ret = read(fd, buf + n, len - n);
-		if (ret < 0) {
-			if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
-				continue; /* try again */
-			fprintf(stderr, "Error reading in file \"%s\"\n", filename);
-			close(fd);
-			return 0;
-		}
-		n += ret;
-	} while (n < len && ret);
-
-	close(fd);
-	return n;
-}
 
 static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
 {
-	char num[16]; /* sized to carry MAX_INT */
-	char file[48]; /* sized to carry longest filename */
-	char dir;
-	struct stat buf;
 	struct gpio_list *new;
-	int ret;
-	int exported = 1;
-	int input = 0;
-
-	sprintf(file, "/sys/class/gpio/gpio%d/value", n);
-	ret = stat(file, &buf);
-	if (ret) {
-		/* file miss, GPIO not exported yet */
-		sprintf(num, "%d", n);
-		ret = write_to("/sys/class/gpio/export", num);
-		if (!ret)
-			return 0;
-		ret = stat(file, &buf);
-		if (ret) {
-			fprintf(stderr, "GPIO %d not available\n", n);
-			return 0;
-		}
-		exported = 0;
-	}
-
-	sprintf(file, "/sys/class/gpio/gpio%d/direction", n);
-	ret = stat(file, &buf);
-	if (!ret)
-		if (read_from(file, &dir, sizeof(dir)))
-			if (dir == 'i')
-				input = 1;
-
-	if (exported == 0 || input == 1) {
+    struct gpiohandle_data data;
+    int found = 0;
+    struct gpio_list *item = *gpio_to_release;
+    for (; item != NULL; item = item->next)
+    {
+        if (item->gpio == n){
+            found = 1;
+            break;
+        }
+    }
+    if (!found) {
+        // create new handle
+        printf("New gpio %d.\n", n);
 		new = (struct gpio_list *)malloc(sizeof(struct gpio_list));
 		if (new == NULL) {
 			fprintf(stderr, "Out of memory\n");
 			return 0;
 		}
-		new->gpio = n;
-		new->exported = exported;
-		new->input = input;
-		new->next = *gpio_to_release;
-		*gpio_to_release = new;
-	}
+        data.values[0] = level;
+        new->next = *gpio_to_release;
+        new->gpio = n;
+        new->fd = gpiotools_request_linehandle(DEVICE_NAME, &new->gpio, 1,
+					   GPIOHANDLE_REQUEST_OUTPUT, &data,
+					   COMSUMER);
+        printf("Create handle with %d\n", new->fd);
+        if (new->fd < 0) {
+            perror("Error");
+            exit(-1);
+        }
+        *gpio_to_release = new;
+    }
+    else
+    {
+        printf("Line founded. Try write %d value=%d\n", item->fd, level);
+        data.values[0] = level;
+        gpiotools_set_values(item->fd, &data);
+    }
+    return 1;
 
-	return write_to(file, level ? "high" : "low");
+
+
 }
 #endif
 
-static int release_gpio(int n, int input, int exported)
-{
-	char num[16]; /* sized to carry MAX_INT */
-	char file[48]; /* sized to carry longest filename */
-
-	sprintf(num, "%d", n);
-	if (input) {
-		sprintf(file, "/sys/class/gpio/gpio%d/direction", n);
-		write_to(file, "in");
-	}
-	if (!exported)
-		write_to("/sys/class/gpio/unexport", num);
-
-	return 1;
-}
 
 static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 {
@@ -216,7 +157,7 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 	}
 
 	while (gpio_to_release) {
-		release_gpio(gpio_to_release->gpio, gpio_to_release->input, gpio_to_release->exported);
+        gpiotools_release_linehandle(gpio_to_release->fd);
 		to_free = gpio_to_release;
 		gpio_to_release = gpio_to_release->next;
 		free(to_free);
