@@ -318,15 +318,19 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 		fprintf(stderr, "Failed to send init to device\n");
 		return STM32_ERR_UNKNOWN;
 	}
-	p_err = port->read(port, &byte, 1);
-	if (p_err == PORT_ERR_OK && byte == STM32_ACK)
-		return STM32_ERR_OK;
-	if (p_err == PORT_ERR_OK && byte == STM32_NACK) {
-		/* We could get error later, but let's continue, for now. */
-		fprintf(stderr,
-			"Warning: the interface was not closed properly.\n");
-		return STM32_ERR_OK;
-	}
+    for (int i=0; i<10;i++) {
+        printf("Trying read ack byte. Try %d.\n", i);
+        p_err = port->read(port, &byte, 1);
+        printf("Readed %d with status %d\n", byte, p_err);
+        if (p_err == PORT_ERR_OK && byte == STM32_ACK)
+            return STM32_ERR_OK;
+        if (p_err == PORT_ERR_OK && byte == STM32_NACK) {
+            /* We could get error later, but let's continue, for now. */
+            fprintf(stderr,
+                "Warning: the interface was not closed properly.\n");
+            return STM32_ERR_OK;
+        }
+    }
 	if (p_err != PORT_ERR_TIMEDOUT) {
 		fprintf(stderr, "Failed to init device.\n");
 		return STM32_ERR_UNKNOWN;

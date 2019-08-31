@@ -267,10 +267,10 @@ static port_err_t serial_posix_read(struct port_interface *port, void *buf,
 			return PORT_ERR_TIMEDOUT;
 		if (r < 0)
 			return PORT_ERR_UNKNOWN;
-
 		nbyte -= r;
 		pos += r;
 	}
+
 	return PORT_ERR_OK;
 }
 

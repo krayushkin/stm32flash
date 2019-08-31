@@ -68,7 +68,7 @@ static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
     }
     if (!found) {
         // create new handle
-        printf("New gpio %d.\n", n);
+        //printf("New gpio %d.\n", n);
 		new = (struct gpio_list *)malloc(sizeof(struct gpio_list));
 		if (new == NULL) {
 			fprintf(stderr, "Out of memory\n");
@@ -80,7 +80,7 @@ static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
         new->fd = gpiotools_request_linehandle(DEVICE_NAME, &new->gpio, 1,
 					   GPIOHANDLE_REQUEST_OUTPUT, &data,
 					   COMSUMER);
-        printf("Create handle with %d\n", new->fd);
+        //printf("Create handle with %d\n", new->fd);
         if (new->fd < 0) {
             perror("Error");
             exit(-1);
@@ -89,7 +89,7 @@ static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
     }
     else
     {
-        printf("Line founded. Try write %d value=%d\n", item->fd, level);
+        //printf("Line founded. Try write %d value=%d\n", item->fd, level);
         data.values[0] = level;
         gpiotools_set_values(item->fd, &data);
     }
@@ -153,7 +153,7 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 			ret = (port->gpio(port, -gpio, level) == PORT_ERR_OK);
 		else
 			ret = drive_gpio(gpio, level, &gpio_to_release);
-		usleep(100000);
+		usleep(10000);
 	}
 
 	while (gpio_to_release) {
@@ -162,7 +162,7 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 		gpio_to_release = gpio_to_release->next;
 		free(to_free);
 	}
-	usleep(500000);
+	usleep(50000);
 	return ret;
 }
 
@@ -204,6 +204,7 @@ int init_bl_entry(struct port_interface *port, const char *seq)
 
 int init_bl_exit(stm32_t *stm, struct port_interface *port, const char *seq)
 {
+    //printf("Running exit block\n");
 	if (seq && strchr(seq, ':'))
 		return gpio_bl_exit(port, seq);
 
