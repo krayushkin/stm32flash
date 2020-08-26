@@ -14,7 +14,7 @@ Thanks to original authors of
 Usage
 -----
 
-Is init section specify gpiochip name with `-G <name>` option. For example:
+In init section specify gpiochip name with `-G <name>` option. For example:
 
 `stm32flash -G gpiochip0 -i -12,11,-11:12,11,-11 -R -w STM32F105RB.hex /dev/ttyS1`
 
