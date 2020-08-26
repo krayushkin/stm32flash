@@ -9,7 +9,7 @@ Changelog
 * add `-G <gpiochip_name>` option for specifying gpiochip name
 
 Tested only with STM32F103C8, STM32F105RB, STM32F030C8 mcu, but must for other stm32flash supported microcontrollers.
-Thanks to original authors of 
+Thanks to original authors of stm32flash utility.
 
 Usage
 -----
