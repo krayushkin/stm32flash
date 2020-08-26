@@ -82,6 +82,7 @@ char		*filename;
 char		*gpio_seq	= NULL;
 uint32_t	start_addr	= 0;
 uint32_t	readwrite_len	= 0;
+char		*gpiochip_name = NULL; // Used in init.c
 
 /* functions */
 int  parse_options(int argc, char *argv[]);
@@ -581,8 +582,11 @@ int parse_options(int argc, char *argv[])
 	int c;
 	char *pLen;
 
-	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfcChuos:S:F:i:R")) != -1) {
+	while ((c = getopt(argc, argv, "G:a:b:m:r:w:e:vn:g:jkfcChuos:S:F:i:R")) != -1) {
 		switch(c) {
+			case 'G':
+				gpiochip_name = optarg;
+				break;
 			case 'a':
 				port_opts.bus_addr = strtoul(optarg, NULL, 0);
 				break;

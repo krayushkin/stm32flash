@@ -39,6 +39,8 @@
 #define COMSUMER "stm32flash"
 #define DEVICE_NAME "gpiochip0"
 
+extern char *gpiochip_name;
+
 struct gpio_list {
 	struct gpio_list *next;
 	unsigned int gpio;
@@ -196,9 +198,16 @@ static int gpio_bl_exit(struct port_interface *port, const char *seq)
 
 int init_bl_entry(struct port_interface *port, const char *seq)
 {
-	if (seq)
-		return gpio_bl_entry(port, seq);
+	if (seq) {
+		if (gpiochip_name)
+			return gpio_bl_entry(port, seq);
+		else
+		{
+			fprintf(stderr, "-G <gpiochip_name> option is mandatory for init sequence. Specify it without /dev/\n");
+			return 1;
+		}
 
+	}
 	return 1;
 }
 
